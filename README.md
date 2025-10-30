@@ -1,0 +1,2 @@
+# locroucalc-lovable-main
+
