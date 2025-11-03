@@ -1569,7 +1569,7 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
           console.log('❌ PGRST116: E-mail não encontrado no banco')
           toast({
             title: "E-mail não cadastrado",
-            description: "Faça seu cadastro no Plano Caseirinhos para ter acesso à sua calculadora.",
+            description: "Faça seu cadastro no Hub do curso primeiro.",
             variant: "destructive",
           })
         } else if (error.code === 'PGRST301') {
@@ -1594,7 +1594,7 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
         console.log('❌ Nenhum dado retornado (mas sem erro?)')
         toast({
           title: "E-mail não cadastrado",
-          description: "Faça seu cadastro no Plano Caseirinhos para ter acesso à sua calculadora.",
+          description: "Faça seu cadastro no Hub do curso primeiro.",
           variant: "destructive",
         })
         return
