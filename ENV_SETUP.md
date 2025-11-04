@@ -4,8 +4,10 @@ Create a `.env` file at the project root with:
 
 VITE_SUPABASE_URL=your-project-url
 VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_APP_SECRET_KEY=your-secret-key-for-jwt-signing
 
 Notes:
 - Vite loads variables that start with `VITE_` and exposes them to the client. Do NOT put service-role or secrets in the client.
 - `.env` is ignored by Git via the added `.gitignore`.
+- `VITE_APP_SECRET_KEY` is used to validate JWT tokens from SSO (Plano Interativo Caseirinhos). Use a strong, random secret key (minimum 32 characters recommended).
 

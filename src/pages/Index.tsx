@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Trash2, Plus, Save, Copy, RotateCcw, Lock, LogOut } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase'
+import { validateToken, saveSession, getValidSession, clearSession } from '@/services/auth'
 
 interface Ingredient {
   id: string
@@ -1468,14 +1469,109 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
     }
   }
 
-  // Verificar autenticação no localStorage ao carregar
+  // Verificar autenticação no localStorage ao carregar e token SSO na URL
   useEffect(() => {
-    const savedEmail = localStorage.getItem('calculadora_auth_email')
-    if (savedEmail) {
-      setAccessEmail(savedEmail)
-      setIsAuthenticated(true)
+    const checkAuth = async () => {
+      // 1. Verificar se há token na URL (SSO)
+      const urlParams = new URLSearchParams(window.location.search)
+      const token = urlParams.get('token')
+      
+      if (token) {
+        console.log('[SSO] Token encontrado na URL')
+        setIsLoading(true)
+        
+        try {
+          // Validar o token
+          const validationResult = await validateToken(token)
+          
+          if (validationResult.valid && validationResult.userData) {
+            console.log('[SSO] Token recebido: válido')
+            
+            // Salvar sessão (24 horas)
+            saveSession(validationResult.userData)
+            
+            // Atualizar estado
+            setAccessEmail(validationResult.userData.email)
+            setIsAuthenticated(true)
+            
+            // Remover token da URL para não ficar visível
+            window.history.replaceState({}, '', window.location.pathname)
+            
+            toast({
+              title: "Login automático realizado!",
+              description: `Bem-vinda, ${validationResult.userData.name}! 🎉`,
+            })
+          } else {
+            console.error('[SSO] Token inválido:', validationResult.error)
+            
+            // Remover token inválido da URL
+            window.history.replaceState({}, '', window.location.pathname)
+            
+            toast({
+              title: "Token inválido",
+              description: validationResult.error || "Não foi possível fazer login automático.",
+              variant: "destructive",
+            })
+          }
+        } catch (error: any) {
+          console.error('[SSO] Erro ao validar token:', error)
+          
+          // Remover token da URL
+          window.history.replaceState({}, '', window.location.pathname)
+          
+          toast({
+            title: "Erro ao validar token",
+            description: error.message || "Ocorreu um erro ao processar o token.",
+            variant: "destructive",
+          })
+        } finally {
+          setIsLoading(false)
+        }
+      } else {
+        // 2. Se não houver token, verificar sessão válida
+        console.log('[SSO] Nenhum token na URL, verificando sessão...')
+        const session = getValidSession()
+        
+        if (session) {
+          console.log('[SSO] Sessão válida encontrada:', session.email)
+          setAccessEmail(session.email)
+          setIsAuthenticated(true)
+        } else {
+          // 3. Fallback para verificação antiga (email no localStorage)
+          const savedEmail = localStorage.getItem('calculadora_auth_email')
+          if (savedEmail) {
+            console.log('[SSO] Email encontrado no localStorage (método antigo):', savedEmail)
+            setAccessEmail(savedEmail)
+            setIsAuthenticated(true)
+          }
+        }
+      }
     }
-  }, [])
+    
+    checkAuth()
+  }, [toast])
+
+  // Verificar periodicamente se a sessão expirou (a cada 5 minutos)
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    const intervalId = setInterval(() => {
+      const session = getValidSession()
+      if (!session) {
+        console.log('[SSO] Sessão expirada durante uso')
+        clearSession()
+        setIsAuthenticated(false)
+        setAccessEmail("")
+        toast({
+          title: "Sessão expirada",
+          description: "Sua sessão expirou. Por favor, faça login novamente.",
+          variant: "destructive",
+        })
+      }
+    }, 5 * 60 * 1000) // Verificar a cada 5 minutos
+
+    return () => clearInterval(intervalId)
+  }, [isAuthenticated, toast])
 
   const handleAccessSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1662,7 +1758,7 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('calculadora_auth_email')
+    clearSession()
     setIsAuthenticated(false)
     setAccessEmail("")
     toast({
