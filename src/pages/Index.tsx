@@ -1567,7 +1567,6 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
             window.history.replaceState({}, '', window.location.pathname)
             
             toast({
-              title: "E-mail não cadastrado",
               description: validation.error || "E-mail não cadastrado. Faça seu cadastro pelo seu Plano de Ação Interativo.",
               variant: "destructive",
             })
@@ -1596,11 +1595,27 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
         console.log('[Auth] Email encontrado no localStorage:', savedEmail)
         setAccessEmail(savedEmail)
         setIsAuthenticated(true)
+      } else {
+        // Se getValidSession retornou null, pode ser porque a sessão expirou
+        // Já foi limpa automaticamente pela função, não precisa fazer nada aqui
       }
     }
     
     checkAuth()
   }, [toast])
+
+  // Limpar sessão ao fechar a aba/navegador
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      clearSession()
+    }
+    
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [])
 
 
   const handleAccessSubmit = async (e: React.FormEvent) => {
@@ -1694,7 +1709,6 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
         if (error.code === 'PGRST116') {
           console.log('❌ PGRST116: E-mail não encontrado no banco')
           toast({
-            title: "E-mail não cadastrado",
             description: "E-mail não cadastrado. Faça seu cadastro pelo seu Plano de Ação Interativo.",
             variant: "destructive",
           })
@@ -1719,7 +1733,6 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
       if (!data) {
         console.log('❌ Nenhum dado retornado (mas sem erro?)')
         toast({
-          title: "E-mail não cadastrado",
           description: "E-mail não cadastrado. Faça seu cadastro pelo seu Plano de Ação Interativo.",
           variant: "destructive",
         })
