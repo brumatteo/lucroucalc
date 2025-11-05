@@ -1502,14 +1502,14 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
       if (error) {
         if (error.code === 'PGRST116') {
           console.log('[Email Auth] Email não encontrado:', normalizedEmail)
-          return { valid: false, error: 'E-mail não cadastrado' }
+          return { valid: false, error: 'E-mail não cadastrado. Faça seu cadastro pelo seu Plano de Ação Interativo.' }
         }
         console.error('[Email Auth] Erro na query:', error)
         return { valid: false, error: error.message || 'Erro ao validar email' }
       }
       
       if (!data) {
-        return { valid: false, error: 'E-mail não encontrado' }
+        return { valid: false, error: 'E-mail não cadastrado. Faça seu cadastro pelo seu Plano de Ação Interativo.' }
       }
       
       console.log('[Email Auth] Email válido encontrado:', data)
@@ -1568,7 +1568,7 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
             
             toast({
               title: "E-mail não cadastrado",
-              description: validation.error || "Este e-mail não está cadastrado no Hub do curso.",
+              description: validation.error || "E-mail não cadastrado. Faça seu cadastro pelo seu Plano de Ação Interativo.",
               variant: "destructive",
             })
           }
@@ -1695,7 +1695,7 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
           console.log('❌ PGRST116: E-mail não encontrado no banco')
           toast({
             title: "E-mail não cadastrado",
-            description: "Faça seu cadastro no Hub do curso primeiro.",
+            description: "E-mail não cadastrado. Faça seu cadastro pelo seu Plano de Ação Interativo.",
             variant: "destructive",
           })
         } else if (error.code === 'PGRST301') {
@@ -1720,7 +1720,7 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
         console.log('❌ Nenhum dado retornado (mas sem erro?)')
         toast({
           title: "E-mail não cadastrado",
-          description: "Faça seu cadastro no Hub do curso primeiro.",
+          description: "E-mail não cadastrado. Faça seu cadastro pelo seu Plano de Ação Interativo.",
           variant: "destructive",
         })
         return
