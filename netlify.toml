@@ -1,8 +1,7 @@
 [build]
-  command = "npx vite build"
+  command = "npm run build"
   publish = "dist"
 
 [build.environment]
   NODE_ENV = "production"
   NETLIFY_EXPERIMENTAL_ALLOW_SECRET_ENVIRONMENT_VARIABLES = "true"
-
