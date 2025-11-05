@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Trash2, Plus, Save, Copy, RotateCcw, Lock, LogOut } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase'
-import { validateToken, saveSession, getValidSession, clearSession } from '@/services/auth'
+import { saveSession, getValidSession, clearSession } from '@/services/auth'
 
 interface Ingredient {
   id: string
@@ -1469,109 +1469,139 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
     }
   }
 
-  // Verificar autenticação no localStorage ao carregar e token SSO na URL
+  // Função helper para validar email no Supabase
+  const validateEmailInSupabase = async (email: string): Promise<{ valid: boolean; error?: string }> => {
+    try {
+      // Normalizar o email (trim e lowercase)
+      const normalizedEmail = email.trim().toLowerCase()
+      console.log('[Email Auth] Validando email:', normalizedEmail)
+      
+      // Verificar conectividade básica
+      const testResult = await supabase
+        .from('users_hub')
+        .select('*')
+        .limit(1)
+      
+      if (testResult.error) {
+        console.error('[Email Auth] Erro de conectividade:', testResult.error)
+        return { 
+          valid: false, 
+          error: testResult.error.code === '42501' 
+            ? 'Erro de permissão no Supabase' 
+            : 'Não foi possível conectar ao banco de dados' 
+        }
+      }
+      
+      // Buscar email específico
+      const { data, error } = await supabase
+        .from('users_hub')
+        .select('email, nome')
+        .eq('email', normalizedEmail)
+        .single()
+      
+      if (error) {
+        if (error.code === 'PGRST116') {
+          console.log('[Email Auth] Email não encontrado:', normalizedEmail)
+          return { valid: false, error: 'E-mail não cadastrado' }
+        }
+        console.error('[Email Auth] Erro na query:', error)
+        return { valid: false, error: error.message || 'Erro ao validar email' }
+      }
+      
+      if (!data) {
+        return { valid: false, error: 'E-mail não encontrado' }
+      }
+      
+      console.log('[Email Auth] Email válido encontrado:', data)
+      return { valid: true }
+    } catch (error: any) {
+      console.error('[Email Auth] Erro ao validar:', error)
+      return { valid: false, error: error.message || 'Erro ao validar email' }
+    }
+  }
+
+  // Verificar autenticação no localStorage ao carregar e parâmetros na URL
   useEffect(() => {
     const checkAuth = async () => {
-      // 1. Verificar se há token na URL (SSO)
       const urlParams = new URLSearchParams(window.location.search)
-      const token = urlParams.get('token')
       
-      if (token) {
-        console.log('[SSO] Token encontrado na URL')
+      // 1. Verificar se há parâmetro email na URL (auto-login via Plano Interativo)
+      const emailParam = urlParams.get('email')
+      
+      if (emailParam) {
+        console.log('[Email Auth] Parâmetro email encontrado na URL')
         setIsLoading(true)
         
         try {
-          // Validar o token
-          const validationResult = await validateToken(token)
+          // Decodificar o email (pode estar codificado na URL)
+          const decodedEmail = decodeURIComponent(emailParam)
+          console.log('[Email Auth] Email decodificado:', decodedEmail)
           
-          if (validationResult.valid && validationResult.userData) {
-            console.log('[SSO] Token recebido: válido')
+          // Validar o email no Supabase
+          const validation = await validateEmailInSupabase(decodedEmail)
+          
+          if (validation.valid) {
+            console.log('[Email Auth] Email válido, liberando acesso...')
             
-            // Salvar sessão (24 horas)
-            saveSession(validationResult.userData)
+            // Normalizar email
+            const normalizedEmail = decodedEmail.trim().toLowerCase()
+            
+            // Salvar sessão (similar ao login manual)
+            saveSession(normalizedEmail)
             
             // Atualizar estado
-            setAccessEmail(validationResult.userData.email)
+            setAccessEmail(normalizedEmail)
             setIsAuthenticated(true)
             
-            // Remover token da URL para não ficar visível
+            // Remover parâmetro da URL para não ficar visível
             window.history.replaceState({}, '', window.location.pathname)
             
             toast({
               title: "Login automático realizado!",
-              description: `Bem-vinda, ${validationResult.userData.name}! 🎉`,
+              description: "Bem-vinda ao LUCRÔ 🎉",
             })
           } else {
-            console.error('[SSO] Token inválido:', validationResult.error)
+            console.error('[Email Auth] Email inválido:', validation.error)
             
-            // Remover token inválido da URL
+            // Remover parâmetro inválido da URL
             window.history.replaceState({}, '', window.location.pathname)
             
             toast({
-              title: "Token inválido",
-              description: validationResult.error || "Não foi possível fazer login automático.",
+              title: "E-mail não cadastrado",
+              description: validation.error || "Este e-mail não está cadastrado no Hub do curso.",
               variant: "destructive",
             })
           }
         } catch (error: any) {
-          console.error('[SSO] Erro ao validar token:', error)
+          console.error('[Email Auth] Erro ao processar email da URL:', error)
           
-          // Remover token da URL
+          // Remover parâmetro da URL
           window.history.replaceState({}, '', window.location.pathname)
           
           toast({
-            title: "Erro ao validar token",
-            description: error.message || "Ocorreu um erro ao processar o token.",
+            title: "Erro ao validar email",
+            description: error.message || "Não foi possível fazer login automático.",
             variant: "destructive",
           })
         } finally {
           setIsLoading(false)
         }
-      } else {
-        // 2. Se não houver token, verificar sessão válida
-        console.log('[SSO] Nenhum token na URL, verificando sessão...')
-        const session = getValidSession()
-        
-        if (session) {
-          console.log('[SSO] Sessão válida encontrada:', session.email)
-          setAccessEmail(session.email)
-          setIsAuthenticated(true)
-        } else {
-          // 3. Fallback para verificação antiga (email no localStorage)
-          const savedEmail = localStorage.getItem('calculadora_auth_email')
-          if (savedEmail) {
-            console.log('[SSO] Email encontrado no localStorage (método antigo):', savedEmail)
-            setAccessEmail(savedEmail)
-            setIsAuthenticated(true)
-          }
-        }
+        return // Não continuar verificando token/sessão se já processamos o email
+      }
+      
+      // 2. Verificar se há sessão válida no localStorage
+      const savedEmail = getValidSession()
+      
+      if (savedEmail) {
+        console.log('[Auth] Email encontrado no localStorage:', savedEmail)
+        setAccessEmail(savedEmail)
+        setIsAuthenticated(true)
       }
     }
     
     checkAuth()
   }, [toast])
 
-  // Verificar periodicamente se a sessão expirou (a cada 5 minutos)
-  useEffect(() => {
-    if (!isAuthenticated) return
-
-    const intervalId = setInterval(() => {
-      const session = getValidSession()
-      if (!session) {
-        console.log('[SSO] Sessão expirada durante uso')
-        clearSession()
-        setIsAuthenticated(false)
-        setAccessEmail("")
-        toast({
-          title: "Sessão expirada",
-          description: "Sua sessão expirou. Por favor, faça login novamente.",
-          variant: "destructive",
-        })
-      }
-    }, 5 * 60 * 1000) // Verificar a cada 5 minutos
-
-    return () => clearInterval(intervalId)
-  }, [isAuthenticated, toast])
 
   const handleAccessSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1700,7 +1730,7 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
       if (data) {
         console.log('✅ E-mail encontrado! Dados:', data)
         console.log('✅ Liberando acesso...')
-        localStorage.setItem('calculadora_auth_email', normalizedEmail)
+        saveSession(normalizedEmail)
         setIsAuthenticated(true)
         toast({
           title: "Acesso liberado!",
