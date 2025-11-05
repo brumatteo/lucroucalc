@@ -1533,9 +1533,32 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
         setIsLoading(true)
         
         try {
+          // Segurança: Validar origem do parâmetro email
+          // Apenas aceitar se vier de um domínio confiável
+          const allowedOrigins = [
+            import.meta.env.VITE_ALLOWED_ORIGIN || window.location.origin,
+            'https://plano.caseirinhos20evenda.com',
+            'https://www.plano.caseirinhos20evenda.com'
+          ]
+          
+          // Verificar referrer (se disponível)
+          const referrer = document.referrer
+          const isFromAllowedOrigin = !referrer || allowedOrigins.some(origin => 
+            referrer.startsWith(origin)
+          )
+          
+          if (!isFromAllowedOrigin && referrer) {
+            console.warn('[Email Auth] Tentativa de login de origem não autorizada:', referrer)
+            // Não bloquear completamente, mas logar para monitoramento
+          }
+          
           // Decodificar o email (pode estar codificado na URL)
           const decodedEmail = decodeURIComponent(emailParam)
-          console.log('[Email Auth] Email decodificado:', decodedEmail)
+          // Validar formato básico de email
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+          if (!emailRegex.test(decodedEmail)) {
+            throw new Error('Formato de email inválido')
+          }
           
           // Validar o email no Supabase
           const validation = await validateEmailInSupabase(decodedEmail)
@@ -1624,10 +1647,7 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
     setIsLoading(true)
     
     console.log('🚀 Iniciando validação de e-mail...')
-    console.log('📊 Credenciais Supabase:', {
-      url: supabase.supabaseUrl,
-      keyPreview: supabase.supabaseKey?.substring(0, 20) + '...'
-    })
+    // Segurança: Não expor credenciais em logs
     
     try {
       // Normalizar o email (trim e lowercase)

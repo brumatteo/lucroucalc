@@ -12,7 +12,14 @@ export interface UserData {
 const SESSION_EXPIRY_TIME = 2 * 60 * 60 * 1000 // 2 horas
 
 /**
+ * Chave única para isolamento entre projetos do ecossistema
+ * Usa prefixo específico do projeto para evitar conflitos
+ */
+const STORAGE_KEY_PREFIX = 'lucroucalc_auth'
+
+/**
  * Armazena dados da sessão no localStorage com timestamp
+ * Usa chave prefixada para isolamento entre projetos
  * 
  * @param email - Email do usuário
  */
@@ -21,8 +28,8 @@ export function saveSession(email: string): void {
     email: email,
     timestamp: Date.now()
   }
-  localStorage.setItem('calculadora_auth_email', JSON.stringify(sessionData))
-  console.log('[Auth] Sessão salva:', email)
+  localStorage.setItem(`${STORAGE_KEY_PREFIX}_email`, JSON.stringify(sessionData))
+  console.log('[Auth] Sessão salva')
 }
 
 /**
@@ -32,7 +39,7 @@ export function saveSession(email: string): void {
  */
 export function getValidSession(): string | null {
   try {
-    const sessionStr = localStorage.getItem('calculadora_auth_email')
+    const sessionStr = localStorage.getItem(`${STORAGE_KEY_PREFIX}_email`)
     if (!sessionStr) {
       return null
     }
@@ -76,9 +83,13 @@ export function getValidSession(): string | null {
 
 /**
  * Remove a sessão do localStorage
+ * Limpa todas as chaves relacionadas ao projeto para isolamento
  */
 export function clearSession(): void {
+  localStorage.removeItem(`${STORAGE_KEY_PREFIX}_email`)
+  localStorage.removeItem(`${STORAGE_KEY_PREFIX}_sso`) // Limpar também se existir
+  // Limpar também chaves antigas para compatibilidade durante migração
   localStorage.removeItem('calculadora_auth_email')
-  localStorage.removeItem('sso_session') // Limpar também se existir
+  localStorage.removeItem('sso_session')
   console.log('[Auth] Sessão removida')
 }

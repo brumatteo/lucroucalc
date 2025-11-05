@@ -10,11 +10,16 @@ Verificar se o problema de conexão é relacionado a CORS (Cross-Origin Resource
 2. Cole e execute este código:
 
 ```javascript
-fetch('https://vuaoqfyvxezhchszmwjz.supabase.co/rest/v1/users_hub?select=*&limit=1', {
+// ⚠️ IMPORTANTE: Substitua pelos valores do seu arquivo .env
+// NUNCA exponha credenciais reais em documentação
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+fetch(`${SUPABASE_URL}/rest/v1/users_hub?select=*&limit=1`, {
   method: 'GET',
   headers: {
-    'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ1YW9nZnlyeGV6aGNoc3ptd2p6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5ODgzMzksImV4cCI6MjA3NjU2NDMzOX0.4HRS9G4RlEjhr1IZ4qJ0sr1-o7t5_jdihu47sDGLb18',
-    'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ1YW9nZnlyeGV6aGNoc3ptd2p6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5ODgzMzksImV4cCI6MjA3NjU2NDMzOX0.4HRS9G4RlEjhr1IZ4qJ0sr1-o7t5_jdihu47sDGLb18'
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
   }
 })
 .then(response => {

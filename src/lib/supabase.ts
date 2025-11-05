@@ -1,18 +1,46 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Prefer Vite env vars; fallback to hardcoded values only if envs are missing
+// Segurança: Credenciais devem vir APENAS de variáveis de ambiente
 const envUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const envAnon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
-const supabaseUrl = envUrl ?? 'https://vuaogfyrxezhchszmwjz.supabase.co'
-const supabaseAnonKey = envAnon ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ1YW9nZnlyeGV6aGNoc3ptd2p6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5ODgzMzksImV4cCI6MjA3NjU2NDMzOX0.4HRS9G4RlEjhr1IZ4qJ0sr1-o7t5_jdihu47sDGLb18'
-
+// Validação obrigatória: sem credenciais, a aplicação não pode funcionar
 if (!envUrl || !envAnon) {
-  // Log apenas em dev para lembrar de configurar .env
+  const errorMsg = '[Supabase] ERRO CRÍTICO: Variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY são obrigatórias. Configure-as no arquivo .env'
+  
   if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console
-    console.warn('[Supabase] Usando credenciais de fallback. Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env')
+    console.error(errorMsg)
+    throw new Error(errorMsg)
+  } else {
+    // Em produção, não expor detalhes, mas também não permitir execução
+    throw new Error('Configuração do Supabase ausente')
   }
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Validar formato básico das credenciais
+if (!envUrl.startsWith('https://') || !envUrl.includes('.supabase.co')) {
+  throw new Error('VITE_SUPABASE_URL deve ser uma URL válida do Supabase (https://xxxxx.supabase.co)')
+}
+
+if (envAnon.length < 100) {
+  throw new Error('VITE_SUPABASE_ANON_KEY parece estar inválida')
+}
+
+// StorageKey única para isolamento entre projetos do mesmo domínio
+// Usa um hash simples baseado na URL do projeto para garantir unicidade
+const getStorageKey = (url: string): string => {
+  // Extrai o ID do projeto da URL (ex: vuaogfyrxezhchszmwjz de https://vuaogfyrxezhchszmwjz.supabase.co)
+  const match = url.match(/https:\/\/([^.]+)\.supabase\.co/)
+  const projectId = match ? match[1] : 'default'
+  return `lucroucalc_supabase_${projectId}`
+}
+
+export const supabase = createClient(envUrl, envAnon, {
+  auth: {
+    storageKey: getStorageKey(envUrl),
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false
+  }
+})

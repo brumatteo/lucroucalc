@@ -2,7 +2,7 @@
 
 ## ❌ Problema Identificado
 
-O servidor Supabase na URL `https://vuaoqfyvxezhchszmwjz.supabase.co` está **inacessível**.
+O servidor Supabase configurado nas variáveis de ambiente está **inacessível**.
 Erro: `ERR_NAME_NOT_RESOLVED`
 
 ## ✅ Solução
