@@ -3,6 +3,5 @@
   publish = "dist"
 
 [build.environment]
-  NODE_ENV = "production"
   NPM_FLAGS = "--include=dev"
-  NETLIFY_EXPERIMENTAL_ALLOW_SECRET_ENVIRONMENT_VARIABLES = "true"
+  SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_ANON_KEY,VITE_SUPABASE_URL"
