@@ -1225,24 +1225,20 @@ export default function CalculadoraExpress() {
   }
 
   // Formatar número para exibição em inputs (sem símbolo R$)
+  // Formata com 2 casas decimais no formato brasileiro (vírgula)
   const formatNumberForInput = (value: number): string => {
-    if (value === 0) return ''
-    // Se for inteiro, mostra sem decimais. Se tiver decimais, mostra com vírgula
-    return value % 1 === 0 
-      ? value.toString() 
-      : value.toString().replace('.', ',')
+    if (value === 0) return '0,00'
+    // Formata com 2 casas decimais sempre, usando vírgula
+    return value.toFixed(2).replace('.', ',')
   }
 
   // Formatar preço para exibição em inputs (sempre mostra "0,00" quando zerado)
+  // Formata com 2 casas decimais sempre, usando vírgula
   const formatPriceForInput = (value: number): string => {
     // Se for zero, mostra "0,00" como valor real
     if (value === 0) return '0,00'
-    // Se for inteiro, mostra com ",00"
-    if (value % 1 === 0) {
-      return value.toString() + ',00'
-    }
-    // Se tiver decimais, mostra com vírgula
-    return value.toString().replace('.', ',')
+    // Formata com 2 casas decimais sempre, usando vírgula
+    return value.toFixed(2).replace('.', ',')
   }
 
   const handleFinalPriceChange = (value: string) => {
