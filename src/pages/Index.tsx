@@ -2013,7 +2013,7 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
               <SelectTrigger className="h-12 transition-smooth">
                 <SelectValue placeholder="Selecione uma receita" />
               </SelectTrigger>
-              <SelectContent side="bottom" sideOffset={4}>
+              <SelectContent side="bottom" sideOffset={4} avoidCollisions={false}>
                 {recipes.map(recipe => (
                   <SelectItem key={recipe.id} value={recipe.id}>
                     {recipe.name}
@@ -2185,7 +2185,7 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
               <SelectTrigger className="h-12 transition-smooth">
                 <SelectValue placeholder="Escolha a cobertura" />
               </SelectTrigger>
-              <SelectContent side="bottom" sideOffset={4}>
+              <SelectContent side="bottom" sideOffset={4} avoidCollisions={false}>
                 {coverages.map(coverage => (
                   <SelectItem key={coverage.id} value={coverage.id}>
                     {coverage.name}
