@@ -1138,6 +1138,9 @@ export default function CalculadoraExpress() {
   const [selectedMargin, setSelectedMargin] = useState<'iniciante' | 'pro' | 'premium' | null>(null)
   const [customFinalPrice, setCustomFinalPrice] = useState<number | null>(null)
   const [productName, setProductName] = useState('')
+  // Estados temporários para edição fluida de campos numéricos
+  const [tempExtraQuantity, setTempExtraQuantity] = useState<Record<string, string>>({})
+  const [tempPriceValues, setTempPriceValues] = useState<Record<string, string>>({})
 
   const margins = {
     iniciante: 2.5,
@@ -1228,6 +1231,18 @@ export default function CalculadoraExpress() {
     return value % 1 === 0 
       ? value.toString() 
       : value.toString().replace('.', ',')
+  }
+
+  // Formatar preço para exibição em inputs (sempre mostra "0,00" quando zerado)
+  const formatPriceForInput = (value: number): string => {
+    // Se for zero, mostra "0,00" como valor real
+    if (value === 0) return '0,00'
+    // Se for inteiro, mostra com ",00"
+    if (value % 1 === 0) {
+      return value.toString() + ',00'
+    }
+    // Se tiver decimais, mostra com vírgula
+    return value.toString().replace('.', ',')
   }
 
   const handleFinalPriceChange = (value: string) => {
@@ -1396,11 +1411,17 @@ export default function CalculadoraExpress() {
           updated.item = value as string
         } else if (field === 'quantity') {
           // Permitir valores vazios temporários para edição fluida
-          const numValue = typeof value === 'string' ? (value === '' ? 1 : parseInt(value) || 1) : value
+          // Se vazio, mantém 1 (não quebra o cálculo)
+          const numValue = typeof value === 'string' 
+            ? (value === '' ? 1 : (parseInt(value) || 1)) 
+            : (value || 1)
           updated.quantity = numValue
         } else if (field === 'unitPrice') {
           // Permitir valores vazios temporários para edição fluida
-          const numValue = typeof value === 'string' ? (value === '' ? 0 : parseCurrency(value)) : value
+          // Se vazio, mantém 0 (não quebra o cálculo)
+          const numValue = typeof value === 'string' 
+            ? (value === '' ? 0 : parseCurrency(value)) 
+            : value
           updated.unitPrice = numValue
         }
         updated.cost = updated.quantity * updated.unitPrice
@@ -2085,22 +2106,41 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
                     <Input
                       type="text"
                       inputMode="decimal"
-                      value={formatNumberForInput(ingredient.packagePrice)}
+                      value={tempPriceValues[`ingredient-${ingredient.id}-price`] !== undefined 
+                        ? tempPriceValues[`ingredient-${ingredient.id}-price`] 
+                        : formatPriceForInput(ingredient.packagePrice)}
                       onChange={(e) => {
                         const val = e.target.value
                         // Permitir edição livre: números, vírgula e ponto
                         if (val === '' || /^[\d,\.]*$/.test(val)) {
-                          handleIngredientChange(ingredient.id, 'packagePrice', val)
+                          // Atualiza estado temporário para edição fluida
+                          setTempPriceValues(prev => ({ ...prev, [`ingredient-${ingredient.id}-price`]: val }))
+                          // Atualiza estado real apenas se não estiver vazio
+                          if (val !== '') {
+                            handleIngredientChange(ingredient.id, 'packagePrice', val)
+                          }
                         }
                       }}
                       onBlur={(e) => {
-                        // Garantir que o valor seja salvo corretamente mesmo se o campo estiver vazio
                         const val = e.target.value
+                        // Limpa estado temporário
+                        setTempPriceValues(prev => {
+                          const newState = { ...prev }
+                          delete newState[`ingredient-${ingredient.id}-price`]
+                          return newState
+                        })
+                        // Se ficou vazio, garante que volta para 0,00
                         if (val === '') {
-                          handleIngredientChange(ingredient.id, 'packagePrice', '0')
+                          handleIngredientChange(ingredient.id, 'packagePrice', '0,00')
+                        } else {
+                          // Garante que o valor final está salvo
+                          handleIngredientChange(ingredient.id, 'packagePrice', val)
                         }
                       }}
-                      placeholder="0,00"
+                      onFocus={(e) => {
+                        // Não selecionar automaticamente - permite edição livre
+                        e.target.setSelectionRange(e.target.selectionStart, e.target.selectionEnd)
+                      }}
                       className="text-sm transition-smooth"
                     />
                   </div>
@@ -2241,22 +2281,41 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
                       <Input
                         type="text"
                         inputMode="decimal"
-                        value={formatNumberForInput(ingredient.packagePrice)}
+                        value={tempPriceValues[`coverage-${ingredient.id}-price`] !== undefined 
+                          ? tempPriceValues[`coverage-${ingredient.id}-price`] 
+                          : formatPriceForInput(ingredient.packagePrice)}
                         onChange={(e) => {
                           const val = e.target.value
                           // Permitir edição livre: números, vírgula e ponto
                           if (val === '' || /^[\d,\.]*$/.test(val)) {
-                            handleCoverageIngredientChange(ingredient.id, 'packagePrice', val)
+                            // Atualiza estado temporário para edição fluida
+                            setTempPriceValues(prev => ({ ...prev, [`coverage-${ingredient.id}-price`]: val }))
+                            // Atualiza estado real apenas se não estiver vazio
+                            if (val !== '') {
+                              handleCoverageIngredientChange(ingredient.id, 'packagePrice', val)
+                            }
                           }
                         }}
                         onBlur={(e) => {
-                          // Garantir que o valor seja salvo corretamente mesmo se o campo estiver vazio
                           const val = e.target.value
+                          // Limpa estado temporário
+                          setTempPriceValues(prev => {
+                            const newState = { ...prev }
+                            delete newState[`coverage-${ingredient.id}-price`]
+                            return newState
+                          })
+                          // Se ficou vazio, garante que volta para 0,00
                           if (val === '') {
-                            handleCoverageIngredientChange(ingredient.id, 'packagePrice', '0')
+                            handleCoverageIngredientChange(ingredient.id, 'packagePrice', '0,00')
+                          } else {
+                            // Garante que o valor final está salvo
+                            handleCoverageIngredientChange(ingredient.id, 'packagePrice', val)
                           }
                         }}
-                        placeholder="0,00"
+                        onFocus={(e) => {
+                          // Não selecionar automaticamente - permite edição livre
+                          e.target.setSelectionRange(e.target.selectionStart, e.target.selectionEnd)
+                        }}
                         className="text-sm transition-smooth"
                       />
                     </div>
@@ -2320,9 +2379,39 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
                     <Input
                       type="text"
                       inputMode="numeric"
-                      value={extra.quantity}
-                      onChange={(e) => handleExtraChange(extra.id, 'quantity', e.target.value)}
-                      placeholder="Qtd"
+                      value={tempExtraQuantity[extra.id] !== undefined ? tempExtraQuantity[extra.id] : extra.quantity.toString()}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        // Permitir edição livre: apenas números
+                        if (val === '' || /^\d+$/.test(val)) {
+                          // Atualiza estado temporário para edição fluida
+                          setTempExtraQuantity(prev => ({ ...prev, [extra.id]: val }))
+                          // Atualiza estado real apenas se não estiver vazio
+                          if (val !== '') {
+                            handleExtraChange(extra.id, 'quantity', val)
+                          }
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const val = e.target.value
+                        // Limpa estado temporário
+                        setTempExtraQuantity(prev => {
+                          const newState = { ...prev }
+                          delete newState[extra.id]
+                          return newState
+                        })
+                        // Se ficou vazio ou zero, volta para 1
+                        if (val === '' || val === '0') {
+                          handleExtraChange(extra.id, 'quantity', '1')
+                        } else {
+                          // Garante que o valor final está salvo
+                          handleExtraChange(extra.id, 'quantity', val)
+                        }
+                      }}
+                      onFocus={(e) => {
+                        // Não selecionar automaticamente - permite edição livre
+                        e.target.setSelectionRange(e.target.selectionStart, e.target.selectionEnd)
+                      }}
                       className="text-sm transition-smooth"
                     />
                   </div>
@@ -2331,22 +2420,41 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
                     <Input
                       type="text"
                       inputMode="decimal"
-                      value={formatNumberForInput(extra.unitPrice)}
+                      value={tempPriceValues[`extra-${extra.id}-price`] !== undefined 
+                        ? tempPriceValues[`extra-${extra.id}-price`] 
+                        : formatPriceForInput(extra.unitPrice)}
                       onChange={(e) => {
                         const val = e.target.value
                         // Permitir edição livre: números, vírgula e ponto
                         if (val === '' || /^[\d,\.]*$/.test(val)) {
-                          handleExtraChange(extra.id, 'unitPrice', val)
+                          // Atualiza estado temporário para edição fluida
+                          setTempPriceValues(prev => ({ ...prev, [`extra-${extra.id}-price`]: val }))
+                          // Atualiza estado real apenas se não estiver vazio
+                          if (val !== '') {
+                            handleExtraChange(extra.id, 'unitPrice', val)
+                          }
                         }
                       }}
                       onBlur={(e) => {
-                        // Garantir que o valor seja salvo corretamente mesmo se o campo estiver vazio
                         const val = e.target.value
+                        // Limpa estado temporário
+                        setTempPriceValues(prev => {
+                          const newState = { ...prev }
+                          delete newState[`extra-${extra.id}-price`]
+                          return newState
+                        })
+                        // Se ficou vazio, garante que volta para 0,00
                         if (val === '') {
-                          handleExtraChange(extra.id, 'unitPrice', '0')
+                          handleExtraChange(extra.id, 'unitPrice', '0,00')
+                        } else {
+                          // Garante que o valor final está salvo
+                          handleExtraChange(extra.id, 'unitPrice', val)
                         }
                       }}
-                      placeholder="0,00"
+                      onFocus={(e) => {
+                        // Não selecionar automaticamente - permite edição livre
+                        e.target.setSelectionRange(e.target.selectionStart, e.target.selectionEnd)
+                      }}
                       className="text-sm transition-smooth"
                     />
                   </div>
