@@ -1141,6 +1141,7 @@ export default function CalculadoraExpress() {
   // Estados temporários para edição fluida de campos numéricos
   const [tempExtraQuantity, setTempExtraQuantity] = useState<Record<string, string>>({})
   const [tempPriceValues, setTempPriceValues] = useState<Record<string, string>>({})
+  const [tempFinalPrice, setTempFinalPrice] = useState<string | null>(null)
 
   const margins = {
     iniciante: 2.5,
@@ -1283,7 +1284,10 @@ export default function CalculadoraExpress() {
     setIngredients(prev => prev.map(ing => {
       if (ing.id === id) {
         const updated = { ...ing }
-        if (field === 'quantity') {
+        if (field === 'name') {
+          // Permitir edição livre do nome do ingrediente
+          updated.name = value as string
+        } else if (field === 'quantity') {
           // Permitir valores vazios temporários para edição fluida
           const numValue = typeof value === 'string' ? (value === '' ? 0 : parseInt(value) || 0) : value
           updated.quantity = numValue
@@ -1352,7 +1356,10 @@ export default function CalculadoraExpress() {
     setCoverageIngredients(prev => prev.map(ing => {
       if (ing.id === id) {
         const updated = { ...ing }
-        if (field === 'quantity') {
+        if (field === 'name') {
+          // Permitir edição livre do nome do ingrediente
+          updated.name = value as string
+        } else if (field === 'quantity') {
           // Permitir valores vazios temporários para edição fluida
           const numValue = typeof value === 'string' ? (value === '' ? 0 : parseInt(value) || 0) : value
           updated.quantity = numValue
@@ -2006,7 +2013,7 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
               <SelectTrigger className="h-12 transition-smooth">
                 <SelectValue placeholder="Selecione uma receita" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent side="bottom" sideOffset={4}>
                 {recipes.map(recipe => (
                   <SelectItem key={recipe.id} value={recipe.id}>
                     {recipe.name}
@@ -2178,7 +2185,7 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
               <SelectTrigger className="h-12 transition-smooth">
                 <SelectValue placeholder="Escolha a cobertura" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent side="bottom" sideOffset={4}>
                 {coverages.map(coverage => (
                   <SelectItem key={coverage.id} value={coverage.id}>
                     {coverage.name}
@@ -2587,23 +2594,39 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
                 <Input
                   type="text"
                   inputMode="decimal"
-                  value={customFinalPrice !== null 
-                    ? formatNumberForInput(customFinalPrice)
-                    : formatNumberForInput(calculateFinalPrice())
+                  value={tempFinalPrice !== null 
+                    ? tempFinalPrice
+                    : (customFinalPrice !== null 
+                      ? formatNumberForInput(customFinalPrice)
+                      : formatNumberForInput(calculateFinalPrice()))
                   }
                   onChange={(e) => {
                     const val = e.target.value
                     // Permitir edição livre: números, vírgula e ponto
                     if (val === '' || /^[\d,\.]*$/.test(val)) {
-                      handleFinalPriceChange(val)
+                      // Atualiza estado temporário para edição fluida
+                      setTempFinalPrice(val)
+                      // Atualiza estado real apenas se não estiver vazio
+                      if (val !== '') {
+                        handleFinalPriceChange(val)
+                      }
                     }
                   }}
                   onBlur={(e) => {
-                    // Garantir que o valor seja salvo corretamente mesmo se o campo estiver vazio
                     const val = e.target.value
+                    // Limpa estado temporário
+                    setTempFinalPrice(null)
+                    // Se ficou vazio, garante que volta para 0,00
                     if (val === '') {
-                      handleFinalPriceChange('0')
+                      handleFinalPriceChange('0,00')
+                    } else {
+                      // Garante que o valor final está salvo
+                      handleFinalPriceChange(val)
                     }
+                  }}
+                  onFocus={(e) => {
+                    // Não selecionar automaticamente - permite edição livre
+                    e.target.setSelectionRange(e.target.selectionStart, e.target.selectionEnd)
                   }}
                   placeholder="0,00"
                   className="text-3xl sm:text-4xl font-bold text-primary text-center bg-transparent border-none w-full py-4 transition-smooth"
