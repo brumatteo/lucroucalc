@@ -1209,8 +1209,25 @@ export default function CalculadoraExpress() {
   }
 
   const parseCurrency = (value: string): number => {
-    const cleanValue = value.replace(/[R$\s.]/g, '').replace(',', '.')
+    if (!value || value === '') return 0
+    // Remove espaços, R$ e pontos (milhares)
+    let cleanValue = value.replace(/[R$\s]/g, '').replace(/\./g, '')
+    // Se houver vírgula, substitui por ponto (decimal)
+    // Se houver múltiplas vírgulas, usa apenas a última
+    const lastCommaIndex = cleanValue.lastIndexOf(',')
+    if (lastCommaIndex !== -1) {
+      cleanValue = cleanValue.substring(0, lastCommaIndex).replace(/,/g, '') + '.' + cleanValue.substring(lastCommaIndex + 1)
+    }
     return parseFloat(cleanValue) || 0
+  }
+
+  // Formatar número para exibição em inputs (sem símbolo R$)
+  const formatNumberForInput = (value: number): string => {
+    if (value === 0) return ''
+    // Se for inteiro, mostra sem decimais. Se tiver decimais, mostra com vírgula
+    return value % 1 === 0 
+      ? value.toString() 
+      : value.toString().replace('.', ',')
   }
 
   const handleFinalPriceChange = (value: string) => {
@@ -1256,11 +1273,17 @@ export default function CalculadoraExpress() {
       if (ing.id === id) {
         const updated = { ...ing }
         if (field === 'quantity') {
-          updated.quantity = typeof value === 'string' ? parseInt(value) || 0 : value
+          // Permitir valores vazios temporários para edição fluida
+          const numValue = typeof value === 'string' ? (value === '' ? 0 : parseInt(value) || 0) : value
+          updated.quantity = numValue
         } else if (field === 'packageWeight') {
-          updated.packageWeight = typeof value === 'string' ? parseInt(value) || 0 : value
+          // Permitir valores vazios temporários para edição fluida
+          const numValue = typeof value === 'string' ? (value === '' ? 0 : parseInt(value) || 0) : value
+          updated.packageWeight = numValue
         } else if (field === 'packagePrice') {
-          updated.packagePrice = typeof value === 'string' ? parseCurrency(value) : value
+          // Permitir valores vazios temporários para edição fluida
+          const numValue = typeof value === 'string' ? (value === '' ? 0 : parseCurrency(value)) : value
+          updated.packagePrice = numValue
         }
         updated.cost = calculateIngredientCost(updated)
         return updated
@@ -1319,11 +1342,17 @@ export default function CalculadoraExpress() {
       if (ing.id === id) {
         const updated = { ...ing }
         if (field === 'quantity') {
-          updated.quantity = typeof value === 'string' ? parseInt(value) || 0 : value
+          // Permitir valores vazios temporários para edição fluida
+          const numValue = typeof value === 'string' ? (value === '' ? 0 : parseInt(value) || 0) : value
+          updated.quantity = numValue
         } else if (field === 'packageWeight') {
-          updated.packageWeight = typeof value === 'string' ? parseInt(value) || 0 : value
+          // Permitir valores vazios temporários para edição fluida
+          const numValue = typeof value === 'string' ? (value === '' ? 0 : parseInt(value) || 0) : value
+          updated.packageWeight = numValue
         } else if (field === 'packagePrice') {
-          updated.packagePrice = typeof value === 'string' ? parseCurrency(value) : value
+          // Permitir valores vazios temporários para edição fluida
+          const numValue = typeof value === 'string' ? (value === '' ? 0 : parseCurrency(value)) : value
+          updated.packagePrice = numValue
         }
         updated.cost = calculateIngredientCost(updated)
         return updated
@@ -1366,9 +1395,13 @@ export default function CalculadoraExpress() {
         if (field === 'item') {
           updated.item = value as string
         } else if (field === 'quantity') {
-          updated.quantity = typeof value === 'string' ? parseInt(value) || 1 : value
+          // Permitir valores vazios temporários para edição fluida
+          const numValue = typeof value === 'string' ? (value === '' ? 1 : parseInt(value) || 1) : value
+          updated.quantity = numValue
         } else if (field === 'unitPrice') {
-          updated.unitPrice = typeof value === 'string' ? parseCurrency(value) : value
+          // Permitir valores vazios temporários para edição fluida
+          const numValue = typeof value === 'string' ? (value === '' ? 0 : parseCurrency(value)) : value
+          updated.unitPrice = numValue
         }
         updated.cost = updated.quantity * updated.unitPrice
         return updated
@@ -1969,9 +2002,16 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
               <Label className="text-foreground font-medium text-sm sm:text-base">Quanto você vai produzir?</Label>
               <div className="space-y-4 mt-3">
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={quantity}
-                  onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 0)}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    // Permitir valores vazios temporários e apenas números
+                    if (val === '' || /^\d+$/.test(val)) {
+                      handleQuantityChange(val === '' ? 0 : parseInt(val) || 0)
+                    }
+                  }}
                   className="text-center text-lg h-12 transition-smooth"
                   placeholder="Gramas"
                 />
@@ -2021,7 +2061,8 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
                   <div className="space-y-1">
                     <label className="md:hidden text-xs font-medium text-muted-foreground block">Qtd</label>
                     <Input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       value={ingredient.quantity}
                       onChange={(e) => handleIngredientChange(ingredient.id, 'quantity', e.target.value)}
                       placeholder="Qtd"
@@ -2031,9 +2072,10 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
                   <div className="space-y-1">
                     <label className="md:hidden text-xs font-medium text-muted-foreground block">Peso Emb (g)</label>
                     <Input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       value={ingredient.packageWeight}
-                      onChange={(e) => handleIngredientChange(ingredient.id, 'packageWeight', parseInt(e.target.value) || 0)}
+                      onChange={(e) => handleIngredientChange(ingredient.id, 'packageWeight', e.target.value)}
                       placeholder={ingredient.name.toLowerCase().includes('ovo') ? "Qtd. embalagem (ex: 12)" : "Peso emb"}
                       className="text-sm transition-smooth"
                     />
@@ -2041,9 +2083,24 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
                   <div className="space-y-1">
                     <label className="md:hidden text-xs font-medium text-muted-foreground block">Preço Emb (R$)</label>
                     <Input
-                      value={formatCurrency(ingredient.packagePrice)}
-                      onChange={(e) => handleIngredientChange(ingredient.id, 'packagePrice', e.target.value)}
-                      placeholder="Preço emb"
+                      type="text"
+                      inputMode="decimal"
+                      value={formatNumberForInput(ingredient.packagePrice)}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        // Permitir edição livre: números, vírgula e ponto
+                        if (val === '' || /^[\d,\.]*$/.test(val)) {
+                          handleIngredientChange(ingredient.id, 'packagePrice', val)
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // Garantir que o valor seja salvo corretamente mesmo se o campo estiver vazio
+                        const val = e.target.value
+                        if (val === '') {
+                          handleIngredientChange(ingredient.id, 'packagePrice', '0')
+                        }
+                      }}
+                      placeholder="0,00"
                       className="text-sm transition-smooth"
                     />
                   </div>
@@ -2099,9 +2156,16 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
                 <Label className="text-foreground font-medium text-sm sm:text-base">Quanto você vai produzir?</Label>
                 <div className="space-y-4 mt-3">
                   <Input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={coverageQuantity}
-                    onChange={(e) => handleCoverageQuantityChange(parseInt(e.target.value) || 0)}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      // Permitir valores vazios temporários e apenas números
+                      if (val === '' || /^\d+$/.test(val)) {
+                        handleCoverageQuantityChange(val === '' ? 0 : parseInt(val) || 0)
+                      }
+                    }}
                     className="text-center text-lg h-12 transition-smooth"
                     placeholder="Gramas"
                   />
@@ -2153,7 +2217,8 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
                     <div className="space-y-1">
                       <label className="md:hidden text-xs font-medium text-muted-foreground block">Qtd</label>
                       <Input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         value={ingredient.quantity}
                         onChange={(e) => handleCoverageIngredientChange(ingredient.id, 'quantity', e.target.value)}
                         placeholder="Qtd"
@@ -2163,9 +2228,10 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
                     <div className="space-y-1">
                       <label className="md:hidden text-xs font-medium text-muted-foreground block">Peso Emb (g)</label>
                       <Input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         value={ingredient.packageWeight}
-                        onChange={(e) => handleCoverageIngredientChange(ingredient.id, 'packageWeight', parseInt(e.target.value) || 0)}
+                        onChange={(e) => handleCoverageIngredientChange(ingredient.id, 'packageWeight', e.target.value)}
                         placeholder={ingredient.name.toLowerCase().includes('ovo') ? "Qtd. embalagem (ex: 12)" : "Peso emb"}
                         className="text-sm transition-smooth"
                       />
@@ -2173,9 +2239,24 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
                     <div className="space-y-1">
                       <label className="md:hidden text-xs font-medium text-muted-foreground block">Preço Emb (R$)</label>
                       <Input
-                        value={formatCurrency(ingredient.packagePrice)}
-                        onChange={(e) => handleCoverageIngredientChange(ingredient.id, 'packagePrice', e.target.value)}
-                        placeholder="Preço emb"
+                        type="text"
+                        inputMode="decimal"
+                        value={formatNumberForInput(ingredient.packagePrice)}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          // Permitir edição livre: números, vírgula e ponto
+                          if (val === '' || /^[\d,\.]*$/.test(val)) {
+                            handleCoverageIngredientChange(ingredient.id, 'packagePrice', val)
+                          }
+                        }}
+                        onBlur={(e) => {
+                          // Garantir que o valor seja salvo corretamente mesmo se o campo estiver vazio
+                          const val = e.target.value
+                          if (val === '') {
+                            handleCoverageIngredientChange(ingredient.id, 'packagePrice', '0')
+                          }
+                        }}
+                        placeholder="0,00"
                         className="text-sm transition-smooth"
                       />
                     </div>
@@ -2237,7 +2318,8 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
                   <div className="space-y-1">
                     <label className="md:hidden text-xs font-medium text-muted-foreground block">Quantidade</label>
                     <Input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       value={extra.quantity}
                       onChange={(e) => handleExtraChange(extra.id, 'quantity', e.target.value)}
                       placeholder="Qtd"
@@ -2247,9 +2329,24 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
                   <div className="space-y-1">
                     <label className="md:hidden text-xs font-medium text-muted-foreground block">Preço unitário (R$)</label>
                     <Input
-                      value={formatCurrency(extra.unitPrice)}
-                      onChange={(e) => handleExtraChange(extra.id, 'unitPrice', e.target.value)}
-                      placeholder="Preço unit"
+                      type="text"
+                      inputMode="decimal"
+                      value={formatNumberForInput(extra.unitPrice)}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        // Permitir edição livre: números, vírgula e ponto
+                        if (val === '' || /^[\d,\.]*$/.test(val)) {
+                          handleExtraChange(extra.id, 'unitPrice', val)
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // Garantir que o valor seja salvo corretamente mesmo se o campo estiver vazio
+                        const val = e.target.value
+                        if (val === '') {
+                          handleExtraChange(extra.id, 'unitPrice', '0')
+                        }
+                      }}
+                      placeholder="0,00"
                       className="text-sm transition-smooth"
                     />
                   </div>
@@ -2384,9 +2481,27 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
               <div>
                 <Label className="text-foreground font-medium mb-2 block">Preço Final (R$) - editável</Label>
                 <Input
-                  value={formatCurrency(calculateFinalPrice())}
-                  onChange={(e) => handleFinalPriceChange(e.target.value)}
-                  placeholder="R$ 0,00"
+                  type="text"
+                  inputMode="decimal"
+                  value={customFinalPrice !== null 
+                    ? formatNumberForInput(customFinalPrice)
+                    : formatNumberForInput(calculateFinalPrice())
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value
+                    // Permitir edição livre: números, vírgula e ponto
+                    if (val === '' || /^[\d,\.]*$/.test(val)) {
+                      handleFinalPriceChange(val)
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Garantir que o valor seja salvo corretamente mesmo se o campo estiver vazio
+                    const val = e.target.value
+                    if (val === '') {
+                      handleFinalPriceChange('0')
+                    }
+                  }}
+                  placeholder="0,00"
                   className="text-3xl sm:text-4xl font-bold text-primary text-center bg-transparent border-none w-full py-4 transition-smooth"
                 />
               </div>
