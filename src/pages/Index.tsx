@@ -55,13 +55,21 @@ interface Coverage {
 const PRICE_STORAGE_PREFIX = 'luco_price_'
 const EXTRA_SUGGESTIONS_STORAGE_KEY = 'luco_extra_suggestions'
 
+const normalizeName = (name: string): string => name.trim().toLowerCase()
+
 const getPriceStorageKey = (name: string): string => {
+  const normalized = normalizeName(name)
+  return `${PRICE_STORAGE_PREFIX}${encodeURIComponent(normalized)}`
+}
+
+const getLegacyPriceStorageKey = (name: string): string => {
   const trimmed = name.trim()
   return `${PRICE_STORAGE_PREFIX}${encodeURIComponent(trimmed)}`
 }
 
 const decodeStorageName = (storageKey: string): string => {
-  return decodeURIComponent(storageKey.substring(PRICE_STORAGE_PREFIX.length))
+  const decoded = decodeURIComponent(storageKey.substring(PRICE_STORAGE_PREFIX.length))
+  return normalizeName(decoded)
 }
 
 // Dados JSON das receitas e coberturas
@@ -1147,7 +1155,7 @@ export default function CalculadoraExpress() {
   const [coverageIngredients, setCoverageIngredients] = useState<CoverageIngredient[]>([])
   const [coveragePrice, setCoveragePrice] = useState(0)
   const [extras, setExtras] = useState<Extra[]>([])
-  const [selectedMargin, setSelectedMargin] = useState<'iniciante' | 'pro' | 'premium' | null>(null)
+  const [selectedMargin, setSelectedMargin] = useState<'base' | 'sustentavel' | 'premium' | null>(null)
   const [customFinalPrice, setCustomFinalPrice] = useState<number | null>(null)
   const [productName, setProductName] = useState('')
   // Estados temporários para edição fluida de campos numéricos
@@ -1158,9 +1166,9 @@ export default function CalculadoraExpress() {
   const [extraSuggestions, setExtraSuggestions] = useState<string[]>([])
 
   const margins = {
-    iniciante: 2.5,
-    pro: 3.0,
-    premium: 3.5
+    base: 2.0,
+    sustentavel: 2.5,
+    premium: 3.0
   }
 
   const calculateIngredientCost = (ingredient: Omit<Ingredient, 'id' | 'cost'>): number => {
@@ -1328,7 +1336,9 @@ export default function CalculadoraExpress() {
           // Permitir valores vazios temporários para edição fluida
           const numValue = typeof value === 'string' ? (value === '' ? 0 : parseCurrency(value)) : value
           updated.packagePrice = numValue
-          priceUpdates.push({ name: updated.name, price: numValue })
+          if (updated.name.trim()) {
+            priceUpdates.push({ name: updated.name, price: numValue })
+          }
         }
         updated.cost = calculateIngredientCost(updated)
         return updated
@@ -1427,7 +1437,9 @@ export default function CalculadoraExpress() {
           // Permitir valores vazios temporários para edição fluida
           const numValue = typeof value === 'string' ? (value === '' ? 0 : parseCurrency(value)) : value
           updated.packagePrice = numValue
-          priceUpdates.push({ name: updated.name, price: numValue })
+          if (updated.name.trim()) {
+            priceUpdates.push({ name: updated.name, price: numValue })
+          }
         }
         updated.cost = calculateIngredientCost(updated)
         return updated
@@ -1491,7 +1503,9 @@ export default function CalculadoraExpress() {
             ? (value === '' ? 0 : parseCurrency(value)) 
             : value
           updated.unitPrice = numValue
-          priceUpdates.push({ name: updated.item, price: numValue, recordExtra: true })
+          if (updated.item.trim()) {
+            priceUpdates.push({ name: updated.item, price: numValue, recordExtra: true })
+          }
         }
         updated.cost = updated.quantity * updated.unitPrice
         return updated
@@ -1524,7 +1538,7 @@ export default function CalculadoraExpress() {
     setIngredients([...ingredients, newIngredient])
   }
 
-  const handleMarginSelect = (margin: 'iniciante' | 'pro' | 'premium') => {
+  const handleMarginSelect = (margin: 'base' | 'sustentavel' | 'premium') => {
     setSelectedMargin(margin)
     setCustomFinalPrice(null) // Limpa o preço customizado quando seleciona uma margem
   }
@@ -1775,12 +1789,12 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
       if (key && key.startsWith(PRICE_STORAGE_PREFIX)) {
-        const name = decodeStorageName(key)
+        const normalizedName = decodeStorageName(key)
         const rawValue = localStorage.getItem(key)
         if (rawValue !== null) {
           const parsed = parseFloat(rawValue)
           if (!Number.isNaN(parsed)) {
-            storedPrices[name] = parsed
+            storedPrices[normalizedName] = parsed
           }
         }
       }
@@ -1803,29 +1817,36 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
 
   const savePriceToLocalMemory = useCallback(
     (name: string, price: number, options?: { recordExtra?: boolean }) => {
-      const trimmed = name.trim()
-      if (!trimmed) return
+      const trimmedName = name.trim()
+      if (!trimmedName) return
       if (typeof window === 'undefined') return
 
+      const normalizedName = normalizeName(trimmedName)
+      const normalizedKey = getPriceStorageKey(trimmedName)
+      const legacyKey = getLegacyPriceStorageKey(trimmedName)
+
       try {
-        localStorage.setItem(getPriceStorageKey(trimmed), price.toString())
+        localStorage.setItem(normalizedKey, price.toString())
+        if (legacyKey !== normalizedKey) {
+          localStorage.removeItem(legacyKey)
+        }
       } catch (error) {
         console.error('Erro ao salvar preço no localStorage', error)
       }
 
       setPriceMemory(prev => {
-        if (prev[trimmed] === price) {
+        if (prev[normalizedName] === price) {
           return prev
         }
-        return { ...prev, [trimmed]: price }
+        return { ...prev, [normalizedName]: price }
       })
 
       if (options?.recordExtra) {
         setExtraSuggestions(prev => {
-          if (prev.includes(trimmed)) {
+          if (prev.includes(trimmedName)) {
             return prev
           }
-          const updated = [...prev, trimmed].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+          const updated = [...prev, trimmedName].sort((a, b) => a.localeCompare(b, 'pt-BR'))
           if (typeof window !== 'undefined') {
             try {
               localStorage.setItem(EXTRA_SUGGESTIONS_STORAGE_KEY, JSON.stringify(updated))
@@ -1842,16 +1863,19 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
 
   const getStoredPriceForName = useCallback(
     (name: string): number | undefined => {
-      const trimmed = name.trim()
-      if (!trimmed) return undefined
+      const normalizedName = normalizeName(name)
+      if (!normalizedName) return undefined
 
-      const memoryValue = priceMemory[trimmed]
+      const memoryValue = priceMemory[normalizedName]
       if (typeof memoryValue === 'number' && !Number.isNaN(memoryValue)) {
         return memoryValue
       }
 
       if (typeof window === 'undefined') return undefined
-      const rawValue = localStorage.getItem(getPriceStorageKey(trimmed))
+      let rawValue = localStorage.getItem(getPriceStorageKey(name))
+      if (rawValue === null) {
+        rawValue = localStorage.getItem(getLegacyPriceStorageKey(name))
+      }
       if (rawValue !== null) {
         const parsed = parseFloat(rawValue)
         if (!Number.isNaN(parsed)) {
@@ -2744,30 +2768,30 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
           <h2 className="text-xl sm:text-2xl font-bold text-foreground">Escolha sua margem de lucro</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card
-              className={`cursor-pointer transition-smooth hover-lift ${selectedMargin === 'iniciante' ? 'ring-2 ring-primary shadow-md' : 'hover:border-primary/50'}`}
-              onClick={() => handleMarginSelect('iniciante')}
+              className={`cursor-pointer transition-smooth hover-lift ${selectedMargin === 'base' ? 'ring-2 ring-primary shadow-md' : 'hover:border-primary/50'}`}
+              onClick={() => handleMarginSelect('base')}
             >
               <CardContent className="p-5 sm:p-6">
                 <div className="flex items-center mb-3">
-                  <div className={`w-5 h-5 rounded-full border-2 mr-3 transition-smooth ${selectedMargin === 'iniciante' ? 'bg-primary border-primary' : 'border-muted-foreground'}`} />
-                  <h3 className="font-semibold text-foreground text-base">Preço Iniciante</h3>
+                  <div className={`w-5 h-5 rounded-full border-2 mr-3 transition-smooth ${selectedMargin === 'base' ? 'bg-primary border-primary' : 'border-muted-foreground'}`} />
+                  <h3 className="font-semibold text-foreground text-base">Preço Base (2x)</h3>
                 </div>
-                <p className="text-sm text-muted-foreground mb-3 leading-relaxed">Confiança, primeiros clientes, margem menor sem prejuízo.</p>
-                <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(calculateTotalCost() * 2.5)}</p>
+                <p className="text-sm text-muted-foreground mb-3 leading-relaxed">Cobre custos e garante lucro. É a faixa de partida segura para quem quer trabalhar com valores acessíveis, sem abrir mão de lucro.</p>
+                <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(calculateTotalCost() * margins.base)}</p>
               </CardContent>
             </Card>
 
             <Card
-              className={`cursor-pointer transition-smooth hover-lift ${selectedMargin === 'pro' ? 'ring-2 ring-primary shadow-md' : 'hover:border-primary/50'}`}
-              onClick={() => handleMarginSelect('pro')}
+              className={`cursor-pointer transition-smooth hover-lift ${selectedMargin === 'sustentavel' ? 'ring-2 ring-primary shadow-md' : 'hover:border-primary/50'}`}
+              onClick={() => handleMarginSelect('sustentavel')}
             >
               <CardContent className="p-5 sm:p-6">
                 <div className="flex items-center mb-3">
-                  <div className={`w-5 h-5 rounded-full border-2 mr-3 transition-smooth ${selectedMargin === 'pro' ? 'bg-primary border-primary' : 'border-muted-foreground'}`} />
-                  <h3 className="font-semibold text-foreground text-base">Preço Pro</h3>
+                  <div className={`w-5 h-5 rounded-full border-2 mr-3 transition-smooth ${selectedMargin === 'sustentavel' ? 'bg-primary border-primary' : 'border-muted-foreground'}`} />
+                  <h3 className="font-semibold text-foreground text-base">Preço Sustentável (2,5x)</h3>
                 </div>
-                <p className="text-sm text-muted-foreground mb-3 leading-relaxed">Padrão mercado, cobre ingredientes + trabalho + lucro justo.</p>
-                <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(calculateTotalCost() * 3.0)}</p>
+                <p className="text-sm text-muted-foreground mb-3 leading-relaxed">Representa um equilíbrio saudável entre lucro e constância. Ideal para marcas que já têm alguma regularidade de pedidos e buscam uma margem confortável e sustentável a longo prazo.</p>
+                <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(calculateTotalCost() * margins.sustentavel)}</p>
               </CardContent>
             </Card>
 
@@ -2778,10 +2802,10 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
               <CardContent className="p-5 sm:p-6">
                 <div className="flex items-center mb-3">
                   <div className={`w-5 h-5 rounded-full border-2 mr-3 transition-smooth ${selectedMargin === 'premium' ? 'bg-primary border-primary' : 'border-muted-foreground'}`} />
-                  <h3 className="font-semibold text-foreground text-base">Preço Premium</h3>
+                  <h3 className="font-semibold text-foreground text-base">Preço Premium (3x)</h3>
                 </div>
-                <p className="text-sm text-muted-foreground mb-3 leading-relaxed">Prática, qualidade, lucro confortável, diferenciação.</p>
-                <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(calculateTotalCost() * 3.5)}</p>
+                <p className="text-sm text-muted-foreground mb-3 leading-relaxed">Posicionamento de valor e diferenciação. Voltado para marcas mais estabelecidas, que já têm confiança e percepção de valor, e se sentem confortáveis em cobrar preços mais altos.</p>
+                <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(calculateTotalCost() * margins.premium)}</p>
               </CardContent>
             </Card>
           </div>
