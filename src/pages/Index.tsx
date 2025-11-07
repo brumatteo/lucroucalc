@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -50,40 +50,6 @@ interface Coverage {
   suggestedQuantity: number
   packageWeight: number
   ingredients?: { name: string; quantity: number }[]
-}
-
-const INGREDIENT_PRICE_PREFIX = 'preco:ingrediente:'
-const EXTRA_PRICE_PREFIX = 'preco:extra:'
-const EXTRA_SUGGESTIONS_STORAGE_KEY = 'luco_extra_suggestions'
-
-const slugifyName = (name: string): string => {
-  return name
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
-const getPriceStorageKey = (type: 'ingredient' | 'extra', name: string): string => {
-  const slug = slugifyName(name)
-  return `${type === 'ingredient' ? INGREDIENT_PRICE_PREFIX : EXTRA_PRICE_PREFIX}${slug}`
-}
-
-const getLegacyIngredientKey = (name: string): string => {
-  const trimmed = name.trim()
-  return `luco_price_${encodeURIComponent(trimmed)}`
-}
-
-const decodeLegacyIngredientName = (storageKey: string): string => {
-  const encoded = storageKey.substring('luco_price_'.length)
-  try {
-    return decodeURIComponent(encoded)
-  } catch (error) {
-    return encoded
-  }
 }
 
 // Dados JSON das receitas e coberturas
@@ -1176,8 +1142,6 @@ export default function CalculadoraExpress() {
   const [tempExtraQuantity, setTempExtraQuantity] = useState<Record<string, string>>({})
   const [tempPriceValues, setTempPriceValues] = useState<Record<string, string>>({})
   const [tempFinalPrice, setTempFinalPrice] = useState<string | null>(null)
-  const [priceMemory, setPriceMemory] = useState<Record<string, number>>({})
-  const [extraSuggestions, setExtraSuggestions] = useState<string[]>([])
 
   const margins = {
     base: 2.0,
@@ -1306,16 +1270,7 @@ export default function CalculadoraExpress() {
         quantity: Math.round(ing.quantity * ratio)
       })
     }))
-    const ingredientsWithMemory = updatedIngredients.map(ingredient => {
-      const storedPrice = getStoredPriceForName('ingredient', ingredient.name)
-      if (storedPrice !== undefined && storedPrice !== ingredient.packagePrice) {
-        const updatedIngredient = { ...ingredient, packagePrice: storedPrice }
-        updatedIngredient.cost = calculateIngredientCost(updatedIngredient)
-        return updatedIngredient
-      }
-      return ingredient
-    })
-    setIngredients(ingredientsWithMemory)
+    setIngredients(updatedIngredients)
   }
 
   const handleQuantityChange = (newQuantity: number) => {
@@ -1326,41 +1281,26 @@ export default function CalculadoraExpress() {
   }
 
   const handleIngredientChange = (id: string, field: keyof Ingredient, value: string | number) => {
-    const priceUpdates: Array<{ type: 'ingredient' | 'extra'; name: string; price: number; recordExtra?: boolean }> = []
-
     setIngredients(prev => prev.map(ing => {
       if (ing.id === id) {
         const updated = { ...ing }
         if (field === 'name') {
-          // Permitir edição livre do nome do ingrediente
           updated.name = value as string
-          const storedPrice = getStoredPriceForName('ingredient', updated.name)
-          if (storedPrice !== undefined) {
-            updated.packagePrice = storedPrice
-          }
         } else if (field === 'quantity') {
-          // Permitir valores vazios temporários para edição fluida
           const numValue = typeof value === 'string' ? (value === '' ? 0 : parseInt(value) || 0) : value
           updated.quantity = numValue
         } else if (field === 'packageWeight') {
-          // Permitir valores vazios temporários para edição fluida
           const numValue = typeof value === 'string' ? (value === '' ? 0 : parseInt(value) || 0) : value
           updated.packageWeight = numValue
         } else if (field === 'packagePrice') {
-          // Permitir valores vazios temporários para edição fluida
           const numValue = typeof value === 'string' ? (value === '' ? 0 : parseCurrency(value)) : value
           updated.packagePrice = numValue
-          if (updated.name.trim()) {
-            priceUpdates.push({ type: 'ingredient', name: updated.name, price: numValue })
-          }
         }
         updated.cost = calculateIngredientCost(updated)
         return updated
       }
       return ing
     }))
-
-    priceUpdates.forEach(({ type, name, price, recordExtra }) => savePriceToLocalMemory(type, name, price, { recordExtra }))
   }
 
   const handleCoverageChange = (coverageId: string) => {
@@ -1384,16 +1324,7 @@ export default function CalculadoraExpress() {
       packageWeight: getDefaultPackageWeight(ing.name),
       cost: 0
     }))
-    const ingredientsWithMemory = updatedIngredients.map(ingredient => {
-      const storedPrice = getStoredPriceForName('ingredient', ingredient.name)
-      if (storedPrice !== undefined && storedPrice !== ingredient.packagePrice) {
-        const updatedIngredient = { ...ingredient, packagePrice: storedPrice }
-        updatedIngredient.cost = calculateIngredientCost(updatedIngredient)
-        return updatedIngredient
-      }
-      return ingredient
-    })
-    setCoverageIngredients(ingredientsWithMemory)
+    setCoverageIngredients(updatedIngredients)
   }
 
   const handleCoverageQuantityChange = (newQuantity: number) => {
@@ -1413,55 +1344,31 @@ export default function CalculadoraExpress() {
         }
         return ing
       })
-      const ingredientsWithMemory = updatedIngredients.map(ingredient => {
-        const storedPrice = getStoredPriceForName('ingredient', ingredient.name)
-        if (storedPrice !== undefined && storedPrice !== ingredient.packagePrice) {
-          const updatedIngredient = { ...ingredient, packagePrice: storedPrice }
-          updatedIngredient.cost = calculateIngredientCost(updatedIngredient)
-          return updatedIngredient
-        }
-        return ingredient
-      })
-      setCoverageIngredients(ingredientsWithMemory)
+      setCoverageIngredients(updatedIngredients)
     }
   }
 
   const handleCoverageIngredientChange = (id: string, field: keyof CoverageIngredient, value: string | number) => {
-    const priceUpdates: Array<{ type: 'ingredient' | 'extra'; name: string; price: number; recordExtra?: boolean }> = []
-
     setCoverageIngredients(prev => prev.map(ing => {
       if (ing.id === id) {
         const updated = { ...ing }
         if (field === 'name') {
-          // Permitir edição livre do nome do ingrediente
           updated.name = value as string
-          const storedPrice = getStoredPriceForName('ingredient', updated.name)
-          if (storedPrice !== undefined) {
-            updated.packagePrice = storedPrice
-          }
         } else if (field === 'quantity') {
-          // Permitir valores vazios temporários para edição fluida
           const numValue = typeof value === 'string' ? (value === '' ? 0 : parseInt(value) || 0) : value
           updated.quantity = numValue
         } else if (field === 'packageWeight') {
-          // Permitir valores vazios temporários para edição fluida
           const numValue = typeof value === 'string' ? (value === '' ? 0 : parseInt(value) || 0) : value
           updated.packageWeight = numValue
         } else if (field === 'packagePrice') {
-          // Permitir valores vazios temporários para edição fluida
           const numValue = typeof value === 'string' ? (value === '' ? 0 : parseCurrency(value)) : value
           updated.packagePrice = numValue
-          if (updated.name.trim()) {
-            priceUpdates.push({ type: 'ingredient', name: updated.name, price: numValue })
-          }
         }
         updated.cost = calculateIngredientCost(updated)
         return updated
       }
       return ing
     }))
-
-    priceUpdates.forEach(({ type, name, price, recordExtra }) => savePriceToLocalMemory(type, name, price, { recordExtra }))
   }
 
   const removeCoverageIngredient = (id: string) => {
@@ -1492,48 +1399,27 @@ export default function CalculadoraExpress() {
   }
 
   const handleExtraChange = (id: string, field: keyof Extra, value: string | number) => {
-    const priceUpdates: Array<{ type: 'ingredient' | 'extra'; name: string; price: number; recordExtra?: boolean }> = []
-
     setExtras(prev => prev.map(extra => {
       if (extra.id === id) {
         const updated = { ...extra }
         if (field === 'item') {
           updated.item = value as string
-          const trimmedItem = updated.item.trim()
-          if (trimmedItem) {
-            persistExtraSuggestion(trimmedItem)
-            const storedPrice = getStoredPriceForName('extra', trimmedItem)
-            if (storedPrice !== undefined) {
-              updated.unitPrice = storedPrice
-            }
-          }
         } else if (field === 'quantity') {
-          // Permitir valores vazios temporários para edição fluida
-          // Se vazio, mantém 1 (não quebra o cálculo)
           const numValue = typeof value === 'string' 
             ? (value === '' ? 1 : (parseInt(value) || 1)) 
             : (value || 1)
           updated.quantity = numValue
         } else if (field === 'unitPrice') {
-          // Permitir valores vazios temporários para edição fluida
-          // Se vazio, mantém 0 (não quebra o cálculo)
           const numValue = typeof value === 'string' 
             ? (value === '' ? 0 : parseCurrency(value)) 
             : value
           updated.unitPrice = numValue
-          if (updated.item.trim()) {
-            priceUpdates.push({ type: 'extra', name: updated.item, price: numValue, recordExtra: true })
-          }
         }
         updated.cost = updated.quantity * updated.unitPrice
         return updated
       }
       return extra
     }))
-
-    priceUpdates.forEach(({ type, name, price, recordExtra }) => {
-      savePriceToLocalMemory(type, name, price, { recordExtra })
-    })
   }
 
   const removeExtra = (id: string) => {
@@ -1800,187 +1686,7 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
     }
   }, [])
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const storedPrices: Record<string, number> = {}
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (!key) continue
-
-      if (key.startsWith(INGREDIENT_PRICE_PREFIX) || key.startsWith(EXTRA_PRICE_PREFIX)) {
-        const rawValue = localStorage.getItem(key)
-        if (rawValue !== null) {
-          const parsed = parseFloat(rawValue)
-          if (!Number.isNaN(parsed)) {
-            storedPrices[key] = parsed
-          }
-        }
-      } else if (key.startsWith('luco_price_')) {
-        const rawValue = localStorage.getItem(key)
-        if (rawValue !== null) {
-          const parsed = parseFloat(rawValue)
-          if (!Number.isNaN(parsed)) {
-            const legacyName = decodeLegacyIngredientName(key)
-            const newKey = getPriceStorageKey('ingredient', legacyName)
-            storedPrices[newKey] = parsed
-            try {
-              localStorage.removeItem(key)
-            } catch (error) {
-              console.error('Erro ao remover chave legada do localStorage', error)
-            }
-          }
-        }
-      }
-    }
-    setPriceMemory(storedPrices)
-
-    const storedExtraNames = localStorage.getItem(EXTRA_SUGGESTIONS_STORAGE_KEY)
-    if (storedExtraNames) {
-      try {
-        const parsed = JSON.parse(storedExtraNames)
-        if (Array.isArray(parsed)) {
-          const validNames = parsed.filter((item): item is string => typeof item === 'string')
-          const deduped = Array.from(new Map(validNames.map(name => [name.toLowerCase(), name])).values())
-          setExtraSuggestions(deduped.sort((a, b) => a.localeCompare(b, 'pt-BR')))
-        }
-      } catch (error) {
-        console.error('Erro ao carregar sugestões de extras do localStorage', error)
-      }
-    }
-  }, [])
-
-  const persistExtraSuggestion = useCallback((name: string) => {
-    const trimmedName = name.trim()
-    if (!trimmedName) return
-
-    setExtraSuggestions(prev => {
-      const alreadyExists = prev.some(item => item.toLowerCase() === trimmedName.toLowerCase())
-      if (alreadyExists) {
-        return prev
-      }
-      const updated = [...prev, trimmedName].sort((a, b) => a.localeCompare(b, 'pt-BR'))
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem(EXTRA_SUGGESTIONS_STORAGE_KEY, JSON.stringify(updated))
-        } catch (error) {
-          console.error('Erro ao salvar sugestões de extras no localStorage', error)
-        }
-      }
-      return updated
-    })
-  }, [])
-
-  const savePriceToLocalMemory = useCallback(
-    (type: 'ingredient' | 'extra', name: string, price: number, options?: { recordExtra?: boolean }) => {
-      const trimmedName = name.trim()
-      if (!trimmedName) return
-      if (typeof window === 'undefined') return
-
-      const storageKey = getPriceStorageKey(type, trimmedName)
-
-      try {
-        localStorage.setItem(storageKey, price.toString())
-        if (type === 'ingredient') {
-          const legacyKey = getLegacyIngredientKey(trimmedName)
-          if (legacyKey !== storageKey) {
-            localStorage.removeItem(legacyKey)
-          }
-        }
-      } catch (error) {
-        console.error('Erro ao salvar preço no localStorage', error)
-      }
-
-      setPriceMemory(prev => {
-        if (prev[storageKey] === price) {
-          return prev
-        }
-        return { ...prev, [storageKey]: price }
-      })
-
-      if (type === 'extra' || options?.recordExtra) {
-        persistExtraSuggestion(trimmedName)
-      }
-    },
-    [persistExtraSuggestion]
-  )
-
-  const getStoredPriceForName = useCallback(
-    (type: 'ingredient' | 'extra', name: string): number | undefined => {
-      const trimmedName = name.trim()
-      if (!trimmedName) return undefined
-
-      const storageKey = getPriceStorageKey(type, trimmedName)
-
-      const memoryValue = priceMemory[storageKey]
-      if (typeof memoryValue === 'number' && !Number.isNaN(memoryValue)) {
-        return memoryValue
-      }
-
-      if (typeof window === 'undefined') return undefined
-      let rawValue = localStorage.getItem(storageKey)
-      if (rawValue === null && type === 'ingredient') {
-        const legacyKey = getLegacyIngredientKey(trimmedName)
-        rawValue = localStorage.getItem(legacyKey)
-      }
-      if (rawValue !== null) {
-        const parsed = parseFloat(rawValue)
-        if (!Number.isNaN(parsed)) {
-          return parsed
-        }
-      }
-
-      return undefined
-    },
-    [priceMemory]
-  )
-
-  useEffect(() => {
-    setIngredients(prev => {
-      let changed = false
-      const updated = prev.map(ingredient => {
-        const storedPrice = getStoredPriceForName('ingredient', ingredient.name)
-        if (storedPrice !== undefined && storedPrice !== ingredient.packagePrice) {
-          const updatedIngredient = { ...ingredient, packagePrice: storedPrice }
-          updatedIngredient.cost = calculateIngredientCost(updatedIngredient)
-          changed = true
-          return updatedIngredient
-        }
-        return ingredient
-      })
-      return changed ? updated : prev
-    })
-
-    setCoverageIngredients(prev => {
-      let changed = false
-      const updated = prev.map(ingredient => {
-        const storedPrice = getStoredPriceForName('ingredient', ingredient.name)
-        if (storedPrice !== undefined && storedPrice !== ingredient.packagePrice) {
-          const updatedIngredient = { ...ingredient, packagePrice: storedPrice }
-          updatedIngredient.cost = calculateIngredientCost(updatedIngredient)
-          changed = true
-          return updatedIngredient
-        }
-        return ingredient
-      })
-      return changed ? updated : prev
-    })
-
-    setExtras(prev => {
-      let changed = false
-      const updated = prev.map(extra => {
-        const storedPrice = getStoredPriceForName('extra', extra.item)
-        if (storedPrice !== undefined && storedPrice !== extra.unitPrice && extra.item.trim() !== '') {
-          const updatedExtra = { ...extra, unitPrice: storedPrice }
-          updatedExtra.cost = storedPrice * updatedExtra.quantity
-          changed = true
-          return updatedExtra
-        }
-        return extra
-      })
-      return changed ? updated : prev
-    })
-  }, [ingredients, coverageIngredients, extras, getStoredPriceForName])
+  useEffect(() => {}, [])
 
   const handleAccessSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -2658,7 +2364,6 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
                       onChange={(e) => handleExtraChange(extra.id, 'item', e.target.value)}
                       placeholder="Nome do item"
                       className="text-sm transition-smooth"
-                      list={extraSuggestions.length > 0 ? 'extra-item-suggestions' : undefined}
                     />
                   </div>
                   <div className="space-y-1">
@@ -2764,13 +2469,6 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
                 </div>
               ))}
             </div>
-            {extraSuggestions.length > 0 && (
-              <datalist id="extra-item-suggestions">
-                {extraSuggestions.map(name => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
-            )}
             <Button
               onClick={addExtra}
               variant="outline"
@@ -2823,7 +2521,7 @@ Calculado com Calculadora Express Caseirinho$ 20&Venda`
                   <div className={`w-5 h-5 rounded-full border-2 mr-3 transition-smooth ${selectedMargin === 'base' ? 'bg-primary border-primary' : 'border-muted-foreground'}`} />
                   <h3 className="font-semibold text-foreground text-base">Preço Base</h3>
                 </div>
-                <p className="text-sm text-muted-foreground mb-3 leading-relaxed">Cobre custos e garante lucro mínimo, evitando prejuízo. É a faixa de partida segura para quem está começando ou quer trabalhar com valores acessíveis.</p>
+                <p className="text-sm text-muted-foreground mb-3 leading-relaxed">Cobre custos e garante lucro. É a faixa de partida segura pra quem quer trabalhar com valores acessíveis.</p>
                 <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(calculateTotalCost() * margins.base)}</p>
               </CardContent>
             </Card>
