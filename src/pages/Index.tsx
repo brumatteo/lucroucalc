@@ -1158,19 +1158,23 @@ export default function CalculadoraExpress() {
   }
 
   const calculateIngredientCost = (ingredient: Omit<Ingredient, 'id' | 'cost'>): number => {
-    if (ingredient.packageWeight === 0) return 0
-    
-    // Verificar se o ingrediente é ovos
-    const isEgg = ingredient.name.toLowerCase().includes('ovo')
-    
-    if (isEgg) {
-      // Para ovos: PesoTotalEmbalagem = QuantidadeEmbalagem × 55
-      const pesoTotalEmbalagem = ingredient.packageWeight * 55
-      return (ingredient.quantity / pesoTotalEmbalagem) * ingredient.packagePrice
-    } else {
-      // Para outros ingredientes: cálculo normal
-      return (ingredient.packagePrice / ingredient.packageWeight) * ingredient.quantity
-    }
+  // Verificar se o ingrediente é ovos
+  const isEgg = ingredient.name.toLowerCase().includes('ovo')
+
+  if (isEgg) {
+    const packageEggCount = ingredient.packageWeight
+    if (packageEggCount === 0) return 0
+
+    const costPerEgg = ingredient.packagePrice / packageEggCount
+    const quantityValue = ingredient.quantity
+    const eggsUsed = quantityValue <= packageEggCount ? quantityValue : quantityValue / 50
+
+    return eggsUsed * costPerEgg
+  }
+
+  if (ingredient.packageWeight === 0) return 0
+
+  return (ingredient.packagePrice / ingredient.packageWeight) * ingredient.quantity
   }
 
   const calculateTotalCost = (): number => {
