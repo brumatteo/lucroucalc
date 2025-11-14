@@ -966,12 +966,20 @@ const parseIngredient = (ingredientStr: string): { name: string; quantity: numbe
 // Função para obter peso padrão da embalagem baseado no ingrediente
 const getDefaultPackageWeight = (ingredientName: string): number => {
   const name = ingredientName.toLowerCase()
-  if (name.includes('farinha') || name.includes('fubá') || name.includes('açúcar') || name.includes('amido')) return 1000
-  if (name.includes('ovo')) return 12 // 1 ovo ≈ 12g
-  if (name.includes('leite') || name.includes('iogurte') || name.includes('buttermilk')) return 1000
-  if (name.includes('manteiga') || name.includes('óleo')) return 500
+  if (name.includes('amido')) return 200
+  if (name.includes('ovo')) return 20
+  if (name.includes('manteiga')) return 200
+  if (name.includes('óleo')) return 900
+  if (name.includes('iogurte')) return 160
+  if (name.includes('baunilha')) return 30
+  if (name.includes('fermento')) return 100
+  if (name.includes('bicarbonato')) return 60
+  if (name.includes('vinagre')) return 750
+  if (name.includes('leite condensado')) return 395
+  if (name.includes('creme de leite')) return 200
+  if (name.includes('farinha') || name.includes('fubá') || name.includes('açúcar')) return 1000
+  if (name.includes('leite') || name.includes('buttermilk')) return 1000
   if (name.includes('cacau') || name.includes('chocolate')) return 250
-  if (name.includes('fermento') || name.includes('bicarbonato') || name.includes('sal')) return 100
   if (name.includes('essência') || name.includes('extrato') || name.includes('corante')) return 50
   if (name.includes('canela') || name.includes('gengibre') || name.includes('noz-moscada')) return 50
   if (name.includes('paçoca')) return 50
